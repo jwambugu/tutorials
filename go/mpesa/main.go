@@ -26,8 +26,8 @@ type MpesaOpts struct {
 	BaseURL        string
 }
 
-// mpesaAccessTokenResponse is the response sent back by Safaricom when we make a request to generate a token
-type mpesaAccessTokenResponse struct {
+// MpesaAccessTokenResponse is the response sent back by Safaricom when we make a request to generate a token
+type MpesaAccessTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	ExpiresIn    string `json:"expires_in"`
 	RequestID    string `json:"requestId"`
@@ -35,8 +35,8 @@ type mpesaAccessTokenResponse struct {
 	ErrorMessage string `json:"errorMessage"`
 }
 
-// stkPushRequestBody is the body with the parameters to be used to initiate an STK push request
-type stkPushRequestBody struct {
+// STKPushRequestBody is the body with the parameters to be used to initiate an STK push request
+type STKPushRequestBody struct {
 	BusinessShortCode string `json:"BusinessShortCode"`
 	Password          string `json:"Password"`
 	Timestamp         string `json:"Timestamp"`
@@ -50,8 +50,8 @@ type stkPushRequestBody struct {
 	TransactionDesc   string `json:"TransactionDesc"`
 }
 
-// stkPushRequestResponse is the response sent back after initiating an STK push request.
-type stkPushRequestResponse struct {
+// STKPushRequestResponse is the response sent back after initiating an STK push request.
+type STKPushRequestResponse struct {
 	MerchantRequestID   string `json:"MerchantRequestID"`
 	CheckoutRequestID   string `json:"CheckoutRequestID"`
 	ResponseCode        string `json:"ResponseCode"`
@@ -60,6 +60,24 @@ type stkPushRequestResponse struct {
 	RequestID           string `json:"requestId"`
 	ErrorCode           string `json:"errorCode"`
 	ErrorMessage        string `json:"errorMessage"`
+}
+
+// STKPushCallbackResponse has the results of the callback data sent once we successfully make an STK push request.
+type STKPushCallbackResponse struct {
+	Body struct {
+		StkCallback struct {
+			MerchantRequestID string `json:"MerchantRequestID"`
+			CheckoutRequestID string `json:"CheckoutRequestID"`
+			ResultCode        int    `json:"ResultCode"`
+			ResultDesc        string `json:"ResultDesc"`
+			CallbackMetadata  struct {
+				Item []struct {
+					Name  string      `json:"Name"`
+					Value interface{} `json:"Value,omitempty"`
+				} `json:"Item"`
+			} `json:"CallbackMetadata"`
+		} `json:"stkCallback"`
+	} `json:"Body"`
 }
 
 // NewMpesa sets up and returns an instance of Mpesa
@@ -97,7 +115,7 @@ func (m *Mpesa) makeRequest(req *http.Request) ([]byte, error) {
 }
 
 // generateAccessToken sends a http request to generate new access token
-func (m *Mpesa) generateAccessToken() (*mpesaAccessTokenResponse, error) {
+func (m *Mpesa) generateAccessToken() (*MpesaAccessTokenResponse, error) {
 	url := fmt.Sprintf("%s/oauth/v1/generate?grant_type=client_credentials", m.baseURL)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -113,7 +131,7 @@ func (m *Mpesa) generateAccessToken() (*mpesaAccessTokenResponse, error) {
 		return nil, err
 	}
 
-	accessTokenResponse := new(mpesaAccessTokenResponse)
+	accessTokenResponse := new(MpesaAccessTokenResponse)
 	if err := json.Unmarshal(resp, &accessTokenResponse); err != nil {
 		return nil, err
 	}
@@ -122,7 +140,7 @@ func (m *Mpesa) generateAccessToken() (*mpesaAccessTokenResponse, error) {
 }
 
 // initiateSTKPushRequest makes a http request performing an STK push request
-func (m *Mpesa) initiateSTKPushRequest(body *stkPushRequestBody) (*stkPushRequestResponse, error) {
+func (m *Mpesa) initiateSTKPushRequest(body *STKPushRequestBody) (*STKPushRequestResponse, error) {
 	url := fmt.Sprintf("%s/mpesa/stkpush/v1/processrequest", m.baseURL)
 
 	requestBody, err := json.Marshal(body)
@@ -148,7 +166,7 @@ func (m *Mpesa) initiateSTKPushRequest(body *stkPushRequestBody) (*stkPushReques
 		return nil, err
 	}
 
-	stkPushResponse := new(stkPushRequestResponse)
+	stkPushResponse := new(STKPushRequestResponse)
 	if err := json.Unmarshal(resp, &stkPushResponse); err != nil {
 		return nil, err
 	}
@@ -172,7 +190,7 @@ func main() {
 
 	password := base64.StdEncoding.EncodeToString([]byte(passwordToEncode))
 
-	response, err := mpesa.initiateSTKPushRequest(&stkPushRequestBody{
+	response, err := mpesa.initiateSTKPushRequest(&STKPushRequestBody{
 		BusinessShortCode: "1222",
 		Password:          password,
 		Timestamp:         timestamp,
