@@ -174,6 +174,27 @@ func (m *Mpesa) initiateSTKPushRequest(body *STKPushRequestBody) (*STKPushReques
 	return stkPushResponse, nil
 }
 
+func httpServer() {
+	stkPushCallbackHandler := func(w http.ResponseWriter, req *http.Request) {
+		payload := new(STKPushCallbackResponse)
+
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Printf("%+v\n", payload)
+
+		fmt.Printf("Result Code: %d\n", payload.Body.StkCallback.ResultCode)
+		fmt.Printf("Result Description: %s\n", payload.Body.StkCallback.ResultDesc)
+	}
+
+	addr := ":8080"
+	http.HandleFunc("/stk-push-callback", stkPushCallbackHandler)
+
+	log.Printf("[*] Server started and running on port %s", addr)
+	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
 func main() {
 	mpesa := NewMpesa(&MpesaOpts{
 		ConsumerKey:    "Ybdrkh6fNDWjlicSZRDX2MReHqYSuZ4e",
