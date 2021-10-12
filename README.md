@@ -7,5 +7,5 @@ These available languages are but more will be added as time goes by.
 
 #### Lists of tutorials
 
-- [MPesa APIs Integration in Go](https://dev.to/jwambugu/mpesa-apis-integration-in-go-180c). The code is can be
-  found [here](https://github.com/jwambugu/tutorials/tree/main/go/mpesa).
+- [MPesa APIs Integration in Go](https://dev.to/jwambugu/mpesa-apis-integration-in-go-180c). The code for the blog post
+  can can be found [here](https://github.com/jwambugu/tutorials/tree/main/go/mpesa).
