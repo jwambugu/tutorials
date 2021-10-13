@@ -2,12 +2,17 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -78,6 +83,28 @@ type STKPushCallbackResponse struct {
 			} `json:"CallbackMetadata"`
 		} `json:"stkCallback"`
 	} `json:"Body"`
+}
+
+// B2CRequestBody is the body with the parameters to be used to initiate a B2C request
+type B2CRequestBody struct {
+	InitiatorName      string `json:"InitiatorName"`
+	SecurityCredential string `json:"SecurityCredential"`
+	CommandID          string `json:"CommandID"`
+	Amount             string `json:"Amount"`
+	PartyA             string `json:"PartyA"`
+	PartyB             string `json:"PartyB"`
+	Remarks            string `json:"Remarks"`
+	QueueTimeOutURL    string `json:"QueueTimeOutURL"`
+	ResultURL          string `json:"ResultURL"`
+	Occassion          string `json:"Occassion"`
+}
+
+// B2CRequestResponse is the response sent back after initiating a B2C request.
+type B2CRequestResponse struct {
+	ConversationID           string `json:"ConversationID"`
+	OriginatorConversationID string `json:"OriginatorConversationID"`
+	ResponseCode             string `json:"ResponseCode"`
+	ResponseDescription      string `json:"ResponseDescription"`
 }
 
 // NewMpesa sets up and returns an instance of Mpesa
@@ -195,7 +222,57 @@ func httpServer() {
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
+// generateSecurityCredentials returns the encrypted password using the public key of the specified environment
+func generateSecurityCredentials(password string, isOnProduction bool) (string, error) {
+	path := "./certificates/production.cer"
+
+	if !isOnProduction {
+		path = "./certificates/sandbox.cer"
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
+
+	contents, err := io.ReadAll(f)
+	if err != nil {
+		return "", err
+	}
+
+	block, _ := pem.Decode(contents)
+
+	var cert *x509.Certificate
+
+	cert, err = x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return "", err
+	}
+
+	rsaPublicKey := cert.PublicKey.(*rsa.PublicKey)
+	reader := rand.Reader
+
+	encryptedPayload, err := rsa.EncryptPKCS1v15(reader, rsaPublicKey, []byte(password))
+	if err != nil {
+		return "", err
+	}
+
+	securityCredentials := base64.StdEncoding.EncodeToString(encryptedPayload)
+	return securityCredentials, nil
+}
+
 func main() {
+	securityCredentials, err := generateSecurityCredentials("Safaricom426!", false)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println(securityCredentials)
+	return
 	mpesa := NewMpesa(&MpesaOpts{
 		ConsumerKey:    "Ybdrkh6fNDWjlicSZRDX2MReHqYSuZ4e",
 		ConsumerSecret: "N0c8DTTOWeLLXqjm",
