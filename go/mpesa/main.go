@@ -166,8 +166,27 @@ func (m *Mpesa) generateAccessToken() (*MpesaAccessTokenResponse, error) {
 	return accessTokenResponse, nil
 }
 
-// initiateSTKPushRequest makes a http request performing an STK push request
-func (m *Mpesa) initiateSTKPushRequest(body *STKPushRequestBody) (*STKPushRequestResponse, error) {
+// setupHttpRequestWithAuth is a helper method aimed to create a http request adding
+// the Authorization Bearer header with the access token for the Mpesa app.
+func (m *Mpesa) setupHttpRequestWithAuth(method, url string, body []byte) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+
+	accessTokenResponse, err := m.generateAccessToken()
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessTokenResponse.AccessToken))
+
+	return req, nil
+}
+
+// InitiateSTKPushRequest makes a http request performing an STK push request
+func (m *Mpesa) InitiateSTKPushRequest(body *STKPushRequestBody) (*STKPushRequestResponse, error) {
 	url := fmt.Sprintf("%s/mpesa/stkpush/v1/processrequest", m.baseURL)
 
 	requestBody, err := json.Marshal(body)
@@ -222,8 +241,8 @@ func httpServer() {
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
-// generateSecurityCredentials returns the encrypted password using the public key of the specified environment
-func generateSecurityCredentials(password string, isOnProduction bool) (string, error) {
+// GenerateSecurityCredentials returns the encrypted password using the public key of the specified environment
+func GenerateSecurityCredentials(password string, isOnProduction bool) (string, error) {
 	path := "./certificates/production.cer"
 
 	if !isOnProduction {
@@ -265,46 +284,33 @@ func generateSecurityCredentials(password string, isOnProduction bool) (string, 
 	return securityCredentials, nil
 }
 
+// InitiateB2CRequest makes a http request performing a B2C payment request.
+func (m *Mpesa) InitiateB2CRequest(body *B2CRequestBody) (*B2CRequestResponse, error) {
+	url := fmt.Sprintf("%s/mpesa/b2c/v1/paymentrequest", m.baseURL)
+
+	requestBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := m.setupHttpRequestWithAuth(http.MethodPost, url, requestBody)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := m.makeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	b2cResponse := new(B2CRequestResponse)
+	if err := json.Unmarshal(resp, &b2cResponse); err != nil {
+		return nil, err
+	}
+
+	return b2cResponse, nil
+}
+
 func main() {
-	securityCredentials, err := generateSecurityCredentials("Safaricom426!", false)
-	if err != nil {
-		log.Fatalln(err)
-	}
 
-	fmt.Println(securityCredentials)
-	return
-	mpesa := NewMpesa(&MpesaOpts{
-		ConsumerKey:    "Ybdrkh6fNDWjlicSZRDX2MReHqYSuZ4e",
-		ConsumerSecret: "N0c8DTTOWeLLXqjm",
-		BaseURL:        "https://sandbox.safaricom.co.ke",
-	})
-
-	// YYYYMMDDHHmmss
-	timestamp := time.Now().Format("20060102150405")
-	shortcode, passkey := "174379", "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"
-
-	// base64 encoded Shortcode+Passkey+Timestamp
-	passwordToEncode := fmt.Sprintf("%s%s%s", shortcode, passkey, timestamp)
-
-	password := base64.StdEncoding.EncodeToString([]byte(passwordToEncode))
-
-	response, err := mpesa.initiateSTKPushRequest(&STKPushRequestBody{
-		BusinessShortCode: "1222",
-		Password:          password,
-		Timestamp:         timestamp,
-		TransactionType:   "CustomerPayBillOnline",
-		Amount:            "10",           // Amount to be charged when checking out
-		PartyA:            "254708666389", // 2547XXXXXXXX
-		PartyB:            shortcode,
-		PhoneNumber:       "254708666389", // 2547XXXXXXXX
-		CallBackURL:       "https://null.test",
-		AccountReference:  "AABBCC",
-		TransactionDesc:   "Payment via STK push.",
-	})
-
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	fmt.Printf("%+v\n", response)
 }
