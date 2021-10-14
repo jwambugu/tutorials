@@ -52,7 +52,7 @@ func b2cRequestExample() {
 		BaseURL:        "https://sandbox.safaricom.co.ke",
 	})
 
-	securityCredentials, err := GenerateSecurityCredentials("your-initiator-password", true)
+	securityCredentials, err := GenerateSecurityCredentials("your-initiator-password", false)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -62,7 +62,7 @@ func b2cRequestExample() {
 		SecurityCredential: securityCredentials,
 		CommandID:          "BusinessPayment",
 		Amount:             "1",
-		PartyA:             "600983",
+		PartyA:             "your-business-short-code-goes-here",
 		PartyB:             "your-phone-number-goes-here",
 		Remarks:            "Payment to customer",
 		QueueTimeOutURL:    "your-endpoint-to-receive-notifications-in-case-request-times-out",
